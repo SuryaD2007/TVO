@@ -1,11 +1,11 @@
 import { ImageResponse } from "next/og";
+import { loadGoogleFont } from "@/lib/og-fonts";
 
 export const alt = "Texas Venture Operators: High-Velocity Engineering for Austin Startups";
 export const size = { width: 1200, height: 630 };
 export const contentType = "image/png";
 
 export default async function Image() {
-  // Satori needs TTF/OTF, so pull the static Google Fonts files at build time.
   const [serif, sans] = await Promise.all([
     loadGoogleFont("Instrument+Serif:ital@1", "Austin startups."),
     loadGoogleFont("Geist:wght@500", "High-velocity engineering for UT Austin's external engineering syndicate Texas Venture Operators Cohort 01 forming"),
@@ -65,11 +65,3 @@ export default async function Image() {
   );
 }
 
-async function loadGoogleFont(family: string, text: string) {
-  const css = await (
-    await fetch(`https://fonts.googleapis.com/css2?family=${family}&text=${encodeURIComponent(text)}`)
-  ).text();
-  const url = css.match(/src: url\((.+?)\) format\('(opentype|truetype)'\)/)?.[1];
-  if (!url) throw new Error(`Could not load font ${family}`);
-  return (await fetch(url)).arrayBuffer();
-}

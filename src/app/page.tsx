@@ -6,6 +6,8 @@ import { Engine } from "@/components/engine";
 import { Footer } from "@/components/footer";
 import { Hero } from "@/components/hero";
 import { Navbar } from "@/components/navbar";
+import { Planner } from "@/components/planner";
+import { Terminal } from "@/components/terminal";
 
 export default function Home() {
   return (
@@ -22,9 +24,11 @@ export default function Home() {
         <Distinction />
         <Engine />
         <Ecosystem />
+        <Planner />
         <Apply />
       </main>
       <Footer />
+      <Terminal />
     </ApplyProvider>
   );
 }

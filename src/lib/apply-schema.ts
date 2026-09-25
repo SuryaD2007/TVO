@@ -28,6 +28,8 @@ const email = (v: string) =>
   /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(v) ? null : "Enter a valid email address.";
 const utEmail = (v: string) =>
   email(v) ?? (/@(utexas\.edu|[a-z0-9-]+\.utexas\.edu)$/i.test(v) ? null : "Use your @utexas.edu email.");
+const challengeCode = (v: string) =>
+  /^OP-[0-9A-F]{6}-[0-9A-F]{10}$/i.test(v.trim()) ? null : "That doesn't look like a challenge code.";
 const minLen = (n: number) => (v: string) =>
   v.trim().length >= n ? null : `Add a bit more detail (at least ${n} characters).`;
 
@@ -96,6 +98,7 @@ export const STEPS: Record<Track, Step[]> = {
       fields: [
         { name: "shipped", label: "The most impressive thing you've shipped", type: "textarea", required: true, placeholder: "What it was, what you built, who used it, and a link if you have one.", validate: minLen(60) },
         { name: "hours", label: "Weekly availability", type: "select", required: true, options: ["8–12 hrs", "12–20 hrs", "20+ hrs"], span: "half" },
+        { name: "challenge", label: "Challenge code", type: "text", placeholder: "OP-XXXXXX-XXXXXXXXXX", hint: "Solved the terminal challenge? Paste your code. Press / anywhere on the site to find it.", validate: challengeCode, span: "half" },
       ],
     },
   ],

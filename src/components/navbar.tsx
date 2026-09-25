@@ -1,6 +1,7 @@
 "use client";
 
 import { AnimatePresence, motion } from "framer-motion";
+import { SquareTerminal } from "lucide-react";
 import { useEffect, useState } from "react";
 import { NAV_LINKS } from "@/lib/content";
 import { useApply } from "./apply-context";
@@ -8,7 +9,7 @@ import { Logo } from "./logo";
 import { Button, cn, EASE } from "./ui";
 
 export function Navbar() {
-  const { openApply } = useApply();
+  const { openApply, setTerminalOpen } = useApply();
   const [scrolled, setScrolled] = useState(false);
   const [open, setOpen] = useState(false);
 
@@ -69,6 +70,16 @@ export function Navbar() {
           </ul>
 
           <div className="flex items-center gap-1">
+            <button
+              type="button"
+              onClick={() => setTerminalOpen(true)}
+              aria-label="Open terminal (press /)"
+              title="Open terminal (/)"
+              className="hidden h-11 items-center gap-2 rounded-full px-3 text-muted transition-colors duration-300 hover:bg-fg/[0.05] hover:text-fg md:flex"
+            >
+              <SquareTerminal className="size-[18px]" strokeWidth={1.5} />
+              <kbd className="grid size-5 place-items-center rounded-md font-mono text-[11px] ring-1 ring-line-strong">/</kbd>
+            </button>
             <div className="hidden sm:block">
               <Button onClick={joinCohort}>Join Cohort</Button>
             </div>
@@ -130,8 +141,20 @@ export function Navbar() {
               initial={{ opacity: 0, y: 20 }}
               animate={{ opacity: 1, y: 0 }}
               transition={{ duration: 0.7, ease: EASE, delay: 0.35 }}
-              className="mt-auto"
+              className="mt-auto flex flex-col gap-3"
             >
+              <Button
+                variant="secondary"
+                size="lg"
+                icon={SquareTerminal}
+                className="w-full justify-between"
+                onClick={() => {
+                  setOpen(false);
+                  setTerminalOpen(true);
+                }}
+              >
+                Open the terminal
+              </Button>
               <Button onClick={joinCohort} size="lg" className="w-full justify-between">
                 Join Cohort
               </Button>

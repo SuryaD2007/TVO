@@ -2,7 +2,19 @@
 
 Landing page and application portal for TVO, UT Austin's external engineering syndicate.
 
-**Stack:** Next.js 16 (App Router) · React 19 · Tailwind CSS v4 · Framer Motion · Lucide
+**Stack:** Next.js 16 (App Router) · React 19 · Tailwind CSS v4 · Framer Motion · Lucide · Supabase · Claude API
+
+## Features
+
+- **Operator terminal**: press `/` anywhere. `help`, `ls`, `cat`, `apply`, and a coding `challenge` whose
+  solvers get a signed code (`OP-…`) that flags their application for priority review. Devtools users get
+  a `tvo.challenge()` hook in the console.
+- **Sprint planner**: founders paste a backlog; Claude (`claude-opus-5`, structured output) returns sized
+  tickets, squad size, and sprint count, then prefills the sprint request. Without `ANTHROPIC_API_KEY`
+  a keyword estimator answers instead, labelled "Quick estimate".
+- **Applicant status**: every submission gets a private `/status/<ref>?t=<token>` link.
+- **Share card**: builders download a 1200×630 "I applied" card (`/api/card`).
+- **Operator console**: `/admin` (password) to filter, search, review, change status, keep notes, export CSV.
 
 ```bash
 npm install
@@ -48,6 +60,9 @@ without Supabase settings, submissions are logged to the server console.
 |---|---|
 | `NEXT_PUBLIC_SITE_URL` | Canonical URL for the sitemap, robots.txt, and OG tags |
 | `SUPABASE_URL`, `SUPABASE_KEY` | Store applications (publishable key; the migration in `supabase/migrations/` limits it to inserts) |
+| `APP_SECRET` | Signs admin sessions and challenge codes; derives the admin DB key |
+| `ADMIN_PASSWORD` | Password for `/admin` |
+| `ANTHROPIC_API_KEY` | Enables the Claude sprint planner |
 | `SLACK_WEBHOOK_URL` | Post each new application to a Slack channel |
 
 Keep `SUPABASE_KEY` server-side (no `NEXT_PUBLIC_` prefix). Even if it leaked, it can only insert rows. Review applications in the Supabase dashboard → Table Editor → `applications`.

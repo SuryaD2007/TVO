@@ -59,6 +59,12 @@ export function Ecosystem() {
               <Button size="lg" onClick={() => openApply("startup")} className="justify-between sm:justify-center">
                 Deploy an Engineering Sprint
               </Button>
+              <a
+                href="#planner"
+                className="inline-flex h-13 items-center justify-center rounded-full px-5 text-[15px] text-muted transition-colors duration-300 hover:text-fg"
+              >
+                Or scope it first →
+              </a>
             </div>
             <p className="mt-6 flex items-center gap-2.5 font-mono text-xs text-muted">
               <LiveDot className="size-1.5" /> Now scoping pilot sprints with founding partners

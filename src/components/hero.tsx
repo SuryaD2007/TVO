@@ -39,6 +39,10 @@ export function Hero() {
             System status <span className="text-subtle">/</span>{" "}
             <span className="text-fg">Cohort 01 forming</span>
           </span>
+          <span className="ml-auto hidden items-center gap-2 text-subtle md:flex">
+            Builders, press
+            <kbd className="grid size-5 place-items-center rounded-md text-[11px] text-fg ring-1 ring-line-strong">/</kbd>
+          </span>
         </motion.div>
 
         <motion.h1

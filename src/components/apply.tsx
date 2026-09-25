@@ -8,6 +8,9 @@ import {
   Building2,
   Check,
   CheckCircle2,
+  Copy,
+  Download,
+  ExternalLink,
   Code2,
   Loader2,
 } from "lucide-react";
@@ -23,9 +26,10 @@ const TRACKS: { id: Track; label: string; sub: string; icon: typeof Building2 }[
 ];
 
 type Status = "idle" | "submitting" | "error" | "done";
+type SubmitResult = { ref: string; statusUrl: string; challengeVerified: boolean };
 
 export function Apply() {
-  const { track, setTrack } = useApply();
+  const { track, setTrack, prefill } = useApply();
 
   return (
     <section id="apply" className="relative overflow-hidden bg-ink-2 py-28 sm:py-40">
@@ -38,7 +42,7 @@ export function Apply() {
           <div className="lg:col-span-4">
             <Reveal>
               <div className="flex items-center gap-4 font-mono text-xs text-subtle">
-                <span className="text-accent">04</span>
+                <span className="text-accent">05</span>
                 <span className="h-px w-10 bg-line-strong" aria-hidden />
                 <span className="tracking-[0.08em]">Apply</span>
               </div>
@@ -99,7 +103,7 @@ export function Apply() {
 
           <Reveal delay={0.15} className="lg:col-span-7 lg:col-start-6">
             {/* Remount per track so each flow starts clean */}
-            <ApplicationForm key={track} track={track} />
+            <ApplicationForm key={`${track}-${prefill.version}`} track={track} initial={prefill.values} />
           </Reveal>
         </div>
       </Container>
@@ -107,14 +111,14 @@ export function Apply() {
   );
 }
 
-function ApplicationForm({ track }: { track: Track }) {
+function ApplicationForm({ track, initial }: { track: Track; initial: Values }) {
   const steps = STEPS[track];
   const [stepIndex, setStepIndex] = useState(0);
-  const [values, setValues] = useState<Values>({});
+  const [values, setValues] = useState<Values>(initial);
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [status, setStatus] = useState<Status>("idle");
   const [serverError, setServerError] = useState("");
-  const [ref, setRef] = useState("");
+  const [result, setResult] = useState<SubmitResult | null>(null);
   const [direction, setDirection] = useState(1);
   const formRef = useRef<HTMLFormElement>(null);
   const honeypot = useRef<HTMLInputElement>(null);
@@ -169,7 +173,7 @@ function ApplicationForm({ track }: { track: Track }) {
         }
         throw new Error(data.error ?? "Something went wrong.");
       }
-      setRef(data.ref);
+      setResult(data);
       setStatus("done");
     } catch (err) {
       setStatus("error");
@@ -177,34 +181,10 @@ function ApplicationForm({ track }: { track: Track }) {
     }
   };
 
-  if (status === "done") {
-    return (
-      <motion.div
-        initial={{ opacity: 0, scale: 0.98 }}
-        animate={{ opacity: 1, scale: 1 }}
-        transition={{ duration: 0.4, ease: EASE }}
-        className="bezel"
-        role="status"
-      >
-        <div className="bezel-core flex flex-col items-center px-6 py-20 text-center">
-          <span className="grid size-16 place-items-center rounded-full bg-accent text-accent-ink">
-            <CheckCircle2 className="size-7" strokeWidth={1.75} />
-          </span>
-          <h3 className="mt-8 text-3xl font-medium tracking-[-0.03em]">
-            {track === "startup" ? "Sprint request received" : "Application received"}
-          </h3>
-          <p className="mt-2 max-w-md text-muted">
-            {track === "startup"
-              ? "We'll reach out by email to scope your backlog."
-              : "We'll email your UT address with next steps for the technical round."}
-          </p>
-          <p className="mt-8 rounded-full bg-ink px-4 py-1.5 font-mono text-xs text-muted ring-1 ring-line">
-            ref <span className="text-fg">{ref}</span>
-          </p>
-        </div>
-      </motion.div>
-    );
+  if (status === "done" && result) {
+    return <ApplySuccess track={track} result={result} name={values.name ?? ""} />;
   }
+
 
   return (
     <form
@@ -505,5 +485,116 @@ function FieldControl({
         </p>
       )}
     </div>
+  );
+}
+
+function ApplySuccess({ track, result, name }: { track: Track; result: SubmitResult; name: string }) {
+  const [copied, setCopied] = useState(false);
+  // Only rendered in the browser after a submit, so window is available
+  const statusLink = `${window.location.origin}${result.statusUrl}`;
+  const firstName = name.trim().split(/\s+/)[0] ?? "";
+  const cardUrl = `/api/card?name=${encodeURIComponent(firstName)}${result.challengeVerified ? "&solved=1" : ""}`;
+
+  const copy = async () => {
+    try {
+      await navigator.clipboard.writeText(statusLink);
+      setCopied(true);
+      setTimeout(() => setCopied(false), 1600);
+    } catch {
+      /* clipboard blocked; link is visible */
+    }
+  };
+
+  return (
+    <motion.div
+      initial={{ opacity: 0, y: 16, filter: "blur(6px)" }}
+      animate={{ opacity: 1, y: 0, filter: "blur(0px)" }}
+      transition={{ duration: 0.7, ease: EASE }}
+      className="bezel"
+      role="status"
+    >
+      <div className="bezel-core px-6 py-12 sm:px-10 sm:py-14">
+        <div className="flex flex-col items-start gap-6 sm:flex-row sm:items-center">
+          <span className="grid size-14 shrink-0 place-items-center rounded-full bg-accent text-accent-ink">
+            <CheckCircle2 className="size-6" strokeWidth={1.75} />
+          </span>
+          <div>
+            <h3 className="text-3xl font-medium tracking-[-0.03em]">
+              {track === "startup" ? "Sprint request received" : "Application received"}
+            </h3>
+            <p className="mt-1.5 text-muted">
+              {track === "startup"
+                ? "We'll reach out by email to scope your backlog."
+                : "We'll email your UT address with next steps for the technical round."}
+            </p>
+          </div>
+        </div>
+
+        <div className="mt-10 flex flex-wrap items-center gap-2 font-mono text-xs">
+          <span className="rounded-full bg-ink px-3 py-1.5 text-muted ring-1 ring-line">
+            ref <span className="text-fg">{result.ref}</span>
+          </span>
+          {result.challengeVerified && (
+            <span className="rounded-full bg-accent/15 px-3 py-1.5 text-accent ring-1 ring-accent/30">
+              challenge solved · priority review
+            </span>
+          )}
+        </div>
+
+        <div className="mt-8 rounded-2xl bg-ink p-5 ring-1 ring-line">
+          <p className="text-sm font-medium text-fg">Track your application</p>
+          <p className="mt-1 text-sm text-subtle">
+            This private link shows your status. Save it; it&apos;s the only copy.
+          </p>
+          <div className="mt-4 flex flex-col gap-2 sm:flex-row">
+            <code className="min-w-0 flex-1 truncate rounded-xl bg-surface px-3 py-2.5 font-mono text-xs text-muted ring-1 ring-line">
+              {statusLink}
+            </code>
+            <div className="flex gap-2">
+              <button
+                type="button"
+                onClick={copy}
+                className="inline-flex h-10 items-center gap-1.5 rounded-full px-4 text-sm text-fg ring-1 ring-line-strong transition-colors hover:bg-fg/[0.06]"
+              >
+                {copied ? <Check className="size-4" /> : <Copy className="size-4" strokeWidth={1.75} />}
+                {copied ? "Copied" : "Copy"}
+              </button>
+              <a
+                href={result.statusUrl}
+                className="inline-flex h-10 items-center gap-1.5 rounded-full px-4 text-sm text-fg ring-1 ring-line-strong transition-colors hover:bg-fg/[0.06]"
+              >
+                Open <ExternalLink className="size-3.5" strokeWidth={1.75} />
+              </a>
+            </div>
+          </div>
+        </div>
+
+        {track === "builder" && (
+          <div className="mt-4 grid gap-5 rounded-2xl bg-ink p-5 ring-1 ring-line sm:grid-cols-[220px_1fr] sm:items-center">
+            {/* eslint-disable-next-line @next/next/no-img-element */}
+            <img
+              src={cardUrl}
+              alt="Your Texas Venture Operators applicant card"
+              width={1200}
+              height={630}
+              className="aspect-[1200/630] w-full rounded-xl ring-1 ring-line"
+            />
+            <div>
+              <p className="text-sm font-medium text-fg">Tell your people</p>
+              <p className="mt-1 text-sm text-subtle">
+                Your founding cohort card, sized for LinkedIn and Instagram.
+              </p>
+              <a
+                href={`${cardUrl}&download=1`}
+                download="tvo-cohort-01.png"
+                className="mt-4 inline-flex h-10 items-center gap-2 rounded-full bg-accent px-4 text-sm font-medium text-accent-ink transition-colors hover:bg-accent-soft"
+              >
+                <Download className="size-4" strokeWidth={1.75} /> Download card
+              </a>
+            </div>
+          </div>
+        )}
+      </div>
+    </motion.div>
   );
 }

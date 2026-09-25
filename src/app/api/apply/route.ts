@@ -1,14 +1,14 @@
 import { randomBytes } from "node:crypto";
 import { STEPS, validateStep, type Values } from "@/lib/apply-schema";
 import type { Track } from "@/lib/content";
-import { rateLimit } from "@/lib/rate-limit";
+import { clientIp, rateLimit } from "@/lib/rate-limit";
+import { verifyChallengeCode } from "@/lib/secrets";
 import { notifyOperators, saveApplication } from "@/lib/store";
 
 const MAX_FIELD_LENGTH = 4000;
 
 export async function POST(request: Request) {
-  const ip = request.headers.get("x-forwarded-for")?.split(",")[0]?.trim() || "unknown";
-  const limit = rateLimit(ip);
+  const limit = rateLimit(`apply:${clientIp(request)}`);
   if (!limit.ok) {
     return Response.json(
       { error: "Too many submissions. Try again in a few minutes." },
@@ -51,7 +51,18 @@ export async function POST(request: Request) {
     return Response.json({ error: "Please fix the highlighted fields.", errors }, { status: 422 });
   }
 
-  const app = { ref: `TVO-${randomBytes(3).toString("hex").toUpperCase()}`, track, values };
+  // A solved terminal challenge is recorded, never required
+  if (values.challenge) {
+    values.challenge = values.challenge.toUpperCase();
+    values.challenge_status = verifyChallengeCode(values.challenge) ? "verified" : "invalid";
+  }
+
+  const app = {
+    ref: `TVO-${randomBytes(3).toString("hex").toUpperCase()}`,
+    track,
+    values,
+    statusToken: randomBytes(16).toString("hex"),
+  };
 
   try {
     await saveApplication(app);
@@ -64,5 +75,12 @@ export async function POST(request: Request) {
   }
   await notifyOperators(app);
 
-  return Response.json({ ref: app.ref }, { status: 201 });
+  return Response.json(
+    {
+      ref: app.ref,
+      statusUrl: `/status/${app.ref}?t=${app.statusToken}`,
+      challengeVerified: values.challenge_status === "verified",
+    },
+    { status: 201 },
+  );
 }
