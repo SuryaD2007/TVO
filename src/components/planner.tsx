@@ -2,7 +2,7 @@
 
 import { AnimatePresence, motion } from "framer-motion";
 import { AlertCircle, Sparkles } from "lucide-react";
-import { useEffect, useState, type FormEvent } from "react";
+import { useEffect, useRef, useState, type FormEvent } from "react";
 import { planToText, type SprintPlan } from "@/lib/plan";
 import { useApply } from "./apply-context";
 import { Bezel, Button, cn, Container, EASE, Reveal, SectionHeader } from "./ui";
@@ -22,7 +22,7 @@ const EXAMPLES = [
   },
 ];
 
-const LOADING_STEPS = ["Reading your backlog", "Breaking it into tickets", "Sizing the work", "Sketching the squad"];
+const LOADING_STEPS = ["Reading your backlog", "Breaking it into tickets", "Sizing the work", "Flagging risks", "Sketching the squad"];
 
 export function Planner() {
   const { openApply } = useApply();
@@ -30,29 +30,41 @@ export function Planner() {
   const [plan, setPlan] = useState<SprintPlan | null>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
+  const inflight = useRef<AbortController | null>(null);
 
-  const onSubmit = async (e: FormEvent) => {
-    e.preventDefault();
-    if (backlog.trim().length < 20) {
-      setError("Add a bit more detail about what you need built.");
-      return;
-    }
+  useEffect(() => () => inflight.current?.abort(), []);
+
+  const requestPlan = async (quick = false) => {
+    inflight.current?.abort();
+    const controller = new AbortController();
+    inflight.current = controller;
     setLoading(true);
     setError("");
     try {
       const res = await fetch("/api/plan", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ backlog }),
+        body: JSON.stringify({ backlog, quick }),
+        signal: controller.signal,
       });
       const data = await res.json();
       if (!res.ok) throw new Error(data.error ?? "Couldn't plan that. Try again.");
       setPlan(data);
+      setLoading(false);
     } catch (err) {
+      if (controller.signal.aborted) return; // superseded by a newer request
       setError(err instanceof Error ? err.message : "Couldn't plan that. Try again.");
-    } finally {
       setLoading(false);
     }
+  };
+
+  const onSubmit = (e: FormEvent) => {
+    e.preventDefault();
+    if (backlog.trim().length < 20) {
+      setError("Add a bit more detail about what you need built.");
+      return;
+    }
+    void requestPlan();
   };
 
   return (
@@ -132,7 +144,7 @@ export function Planner() {
             <Bezel coreClassName="relative min-h-[520px] overflow-hidden p-6 sm:p-8">
               <AnimatePresence mode="wait">
                 {loading ? (
-                  <PlanLoading key="loading" />
+                  <PlanLoading key="loading" onQuick={() => void requestPlan(true)} />
                 ) : plan ? (
                   <PlanResult
                     key={plan.summary}
@@ -177,11 +189,16 @@ function PlanEmpty() {
   );
 }
 
-function PlanLoading() {
+function PlanLoading({ onQuick }: { onQuick: () => void }) {
   const [step, setStep] = useState(0);
+  const [slow, setSlow] = useState(false);
   useEffect(() => {
-    const id = setInterval(() => setStep((s) => Math.min(s + 1, LOADING_STEPS.length - 1)), 1400);
-    return () => clearInterval(id);
+    const id = setInterval(() => setStep((s) => Math.min(s + 1, LOADING_STEPS.length - 1)), 2000);
+    const slowId = setTimeout(() => setSlow(true), 12_000);
+    return () => {
+      clearInterval(id);
+      clearTimeout(slowId);
+    };
   }, []);
 
   return (
@@ -209,6 +226,27 @@ function PlanLoading() {
           </li>
         ))}
       </ol>
+
+      <AnimatePresence>
+        {slow && (
+          <motion.div
+            initial={{ opacity: 0, y: 8 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.5, ease: EASE }}
+            className="mt-8 flex flex-col gap-3 rounded-2xl bg-ink p-4 ring-1 ring-line sm:flex-row sm:items-center sm:justify-between"
+          >
+            <p className="text-sm text-muted">The AI is busy right now. Still working on it…</p>
+            <button
+              type="button"
+              onClick={onQuick}
+              className="h-9 shrink-0 rounded-full px-4 text-sm text-fg ring-1 ring-line-strong transition-colors duration-300 hover:bg-fg/[0.06]"
+            >
+              Get a quick estimate now
+            </button>
+          </motion.div>
+        )}
+      </AnimatePresence>
+
       <div className="mt-10 space-y-3" aria-hidden>
         {[80, 62, 90, 54].map((w, i) => (
           <div key={i} className="relative h-12 overflow-hidden rounded-xl bg-fg/[0.03]">

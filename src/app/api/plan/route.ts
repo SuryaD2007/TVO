@@ -6,8 +6,19 @@ import { clientIp, rateLimit } from "@/lib/rate-limit";
 const MIN_LEN = 20;
 const MAX_LEN = 4000;
 
-// Enabled when ANTHROPIC_API_KEY is set; otherwise the heuristic answers.
+// Providers, tried in order: Claude (ANTHROPIC_API_KEY), then Gemini
+// (GEMINI_API_KEY). If neither is set or both fail, the keyword heuristic answers.
 const client = process.env.ANTHROPIC_API_KEY ? new Anthropic() : null;
+const GEMINI_API_KEY = process.env.GEMINI_API_KEY;
+// Comma-separated; each model is tried when the previous one is busy or missing.
+const GEMINI_MODELS = (process.env.GEMINI_MODELS ?? "gemini-2.5-flash,gemini-flash-latest,gemini-flash-lite-latest")
+  .split(",")
+  .map((m) => m.trim())
+  .filter(Boolean);
+
+// Allow time for a model fallback or two on Vercel; Gemini gets a shared budget.
+export const maxDuration = 60;
+const GEMINI_BUDGET_MS = 45_000;
 
 const SYSTEM = `You scope engineering sprints for Texas Venture Operators (TVO), a UT Austin student engineering syndicate that embeds squads of 2-4 vetted builders into seed and Series A startups for fixed two-week sprints.
 
@@ -60,21 +71,85 @@ async function planWithClaude(backlog: string): Promise<SprintPlan | null> {
   const text = response.content.find((b) => b.type === "text");
   if (!text || text.type !== "text") return null;
 
-  const raw = JSON.parse(text.text) as Omit<SprintPlan, "source">;
-  const tickets: PlanTicket[] = raw.tickets.slice(0, 10).map((t) => ({
-    title: t.title.slice(0, 80),
-    area: AREAS.includes(t.area) ? t.area : "backend",
-    size: SIZES.includes(t.size) ? t.size : "M",
-    notes: t.notes.slice(0, 160),
-  }));
+  return normalize(JSON.parse(text.text));
+}
+
+async function planWithGemini(backlog: string): Promise<SprintPlan | null> {
+  if (!GEMINI_API_KEY) return null;
+  const deadline = Date.now() + GEMINI_BUDGET_MS;
+
+  for (const model of GEMINI_MODELS) {
+    const remaining = deadline - Date.now();
+    if (remaining < 3_000) break;
+    const res = await fetch(
+      `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent`,
+      {
+        method: "POST",
+        headers: { "x-goog-api-key": GEMINI_API_KEY, "Content-Type": "application/json" },
+        body: JSON.stringify({
+          systemInstruction: { parts: [{ text: SYSTEM }] },
+          contents: [{ role: "user", parts: [{ text: `<backlog>\n${backlog}\n</backlog>` }] }],
+          generationConfig: {
+            responseMimeType: "application/json",
+            responseJsonSchema: SCHEMA,
+            // Gemini 2.5 accepts a zero thinking budget; newer models pick their own.
+            ...(model.startsWith("gemini-2.5") ? { thinkingConfig: { thinkingBudget: 0 } } : {}),
+          },
+        }),
+        signal: AbortSignal.timeout(remaining),
+      },
+    ).catch((err: unknown) => {
+      console.warn(`[plan] gemini ${model} request failed:`, err instanceof Error ? err.message : err);
+      return null;
+    });
+    if (!res) continue;
+
+    if (!res.ok) {
+      console.warn(`[plan] gemini ${model} HTTP ${res.status}`);
+      // A bad or unauthorized key won't work on any model; stop early.
+      if (res.status === 401 || res.status === 403) return null;
+      continue; // 400 (unsupported option), 404 (retired model), 429, 5xx: try the next model
+    }
+
+    const data = (await res.json()) as {
+      candidates?: { finishReason?: string; content?: { parts?: { text?: string; thought?: boolean }[] } }[];
+    };
+    const candidate = data.candidates?.[0];
+    if (!candidate || candidate.finishReason !== "STOP") continue;
+    const text = (candidate.content?.parts ?? [])
+      .filter((p) => !p.thought)
+      .map((p) => p.text ?? "")
+      .join("");
+    try {
+      const plan = normalize(JSON.parse(text));
+      if (plan) return plan;
+    } catch {
+      console.warn(`[plan] gemini ${model} returned invalid JSON`);
+    }
+  }
+  return null;
+}
+
+/** Clamp and validate a model's JSON into a SprintPlan; null if unusable. */
+function normalize(raw: Omit<SprintPlan, "source">): SprintPlan | null {
+  if (!raw || !Array.isArray(raw.tickets)) return null;
+  const tickets: PlanTicket[] = raw.tickets
+    .filter((t) => t && typeof t.title === "string" && t.title.trim())
+    .slice(0, 10)
+    .map((t) => ({
+      title: t.title.trim().slice(0, 80),
+      area: AREAS.includes(t.area) ? t.area : "backend",
+      size: SIZES.includes(t.size) ? t.size : "M",
+      notes: (t.notes ?? "").slice(0, 160),
+    }));
   if (!tickets.length) return null;
 
   return {
-    summary: raw.summary.slice(0, 300),
+    summary: String(raw.summary ?? "").slice(0, 300),
     tickets,
     squad_size: clamp(raw.squad_size ?? sizing(tickets).squad, 2, 4),
     sprints: clamp(raw.sprints ?? sizing(tickets).sprints, 1, 4),
-    risks: raw.risks.slice(0, 3).map((r) => r.slice(0, 200)),
+    risks: (Array.isArray(raw.risks) ? raw.risks : []).slice(0, 3).map((r) => String(r).slice(0, 200)),
     source: "ai",
   };
 }
@@ -89,8 +164,11 @@ export async function POST(request: Request) {
   }
 
   let backlog = "";
+  let quick = false;
   try {
-    backlog = String((await request.json()).backlog ?? "").trim();
+    const body = await request.json();
+    backlog = String(body.backlog ?? "").trim();
+    quick = body.quick === true;
   } catch {
     return Response.json({ error: "Invalid JSON." }, { status: 400 });
   }
@@ -101,6 +179,9 @@ export async function POST(request: Request) {
     return Response.json({ error: `Keep it under ${MAX_LEN} characters.` }, { status: 422 });
   }
 
+  // "Get a quick estimate now" skips the AI providers entirely
+  if (quick) return Response.json(estimatePlan(backlog));
+
   try {
     const plan = await planWithClaude(backlog);
     if (plan) return Response.json(plan);
@@ -109,5 +190,13 @@ export async function POST(request: Request) {
     else if (err instanceof Anthropic.APIError) console.error(`[plan] API error ${err.status}:`, err.message);
     else console.error("[plan]", err);
   }
+
+  try {
+    const plan = await planWithGemini(backlog);
+    if (plan) return Response.json(plan);
+  } catch (err) {
+    console.error("[plan] gemini", err);
+  }
+
   return Response.json(estimatePlan(backlog));
 }

@@ -9,9 +9,10 @@ Landing page and application portal for TVO, UT Austin's external engineering sy
 - **Operator terminal**: press `/` anywhere. `help`, `ls`, `cat`, `apply`, and a coding `challenge` whose
   solvers get a signed code (`OP-…`) that flags their application for priority review. Devtools users get
   a `tvo.challenge()` hook in the console.
-- **Sprint planner**: founders paste a backlog; Claude (`claude-opus-5`, structured output) returns sized
-  tickets, squad size, and sprint count, then prefills the sprint request. Without `ANTHROPIC_API_KEY`
-  a keyword estimator answers instead, labelled "Quick estimate".
+- **Sprint planner**: founders paste a backlog and get sized tickets, squad size, sprint count, and risks,
+  then prefill the sprint request. Providers are tried in order: Claude (`claude-opus-5`) if
+  `ANTHROPIC_API_KEY` is set, then Gemini (`GEMINI_API_KEY`, with model fallback when one is busy), then a
+  keyword estimator labelled "Quick estimate". After 12 s the UI offers the instant estimate instead.
 - **Applicant status**: every submission gets a private `/status/<ref>?t=<token>` link.
 - **Share card**: builders download a 1200×630 "I applied" card (`/api/card`).
 - **Operator console**: `/admin` (password) to filter, search, review, change status, keep notes, export CSV.
@@ -63,6 +64,7 @@ without Supabase settings, submissions are logged to the server console.
 | `APP_SECRET` | Signs admin sessions and challenge codes; derives the admin DB key |
 | `ADMIN_PASSWORD` | Password for `/admin` |
 | `ANTHROPIC_API_KEY` | Enables the Claude sprint planner |
+| `GEMINI_API_KEY` | Enables the Gemini sprint planner (used when Claude isn't configured) |
 | `SLACK_WEBHOOK_URL` | Post each new application to a Slack channel |
 
 Keep `SUPABASE_KEY` server-side (no `NEXT_PUBLIC_` prefix). Even if it leaked, it can only insert rows. Review applications in the Supabase dashboard → Table Editor → `applications`.
