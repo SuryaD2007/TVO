@@ -3,12 +3,15 @@ import { STEPS, validateStep, type Values } from "@/lib/apply-schema";
 import type { Track } from "@/lib/content";
 import { clientIp, rateLimit } from "@/lib/rate-limit";
 import { verifyChallengeCode } from "@/lib/secrets";
+import { verifyTurnstile } from "@/lib/turnstile";
+import { emailConfigured, sendApplicantConfirmation, sendOperatorAlert } from "@/lib/email";
+import { SITE_URL } from "@/lib/site";
 import { notifyOperators, saveApplication } from "@/lib/store";
 
 const MAX_FIELD_LENGTH = 4000;
 
 export async function POST(request: Request) {
-  const limit = rateLimit(`apply:${clientIp(request)}`);
+  const limit = await rateLimit(`apply:${clientIp(request)}`);
   if (!limit.ok) {
     return Response.json(
       { error: "Too many submissions. Try again in a few minutes." },
@@ -16,7 +19,7 @@ export async function POST(request: Request) {
     );
   }
 
-  let body: { track?: Track; values?: Record<string, unknown>; website_hp?: string };
+  let body: { track?: Track; values?: Record<string, unknown>; website_hp?: string; turnstileToken?: string };
   try {
     body = await request.json();
   } catch {
@@ -31,6 +34,13 @@ export async function POST(request: Request) {
   // Honeypot: real users never see this field. Pretend success for bots.
   if (body.website_hp) {
     return Response.json({ ref: "TVO-000000" }, { status: 201 });
+  }
+
+  if (!(await verifyTurnstile(String(body.turnstileToken ?? ""), request))) {
+    return Response.json(
+      { error: "Couldn't verify you're human. Refresh the page and try again." },
+      { status: 403 },
+    );
   }
 
   // Keep only fields this track defines, as trimmed strings
@@ -73,12 +83,21 @@ export async function POST(request: Request) {
       { status: 500 },
     );
   }
-  await notifyOperators(app);
+  // Notifications are best-effort: a failed email never fails the application
+  const origin = process.env.NEXT_PUBLIC_SITE_URL ? SITE_URL : new URL(request.url).origin;
+  const statusPath = `/status/${app.ref}?t=${app.statusToken}`;
+  const results = await Promise.allSettled([
+    notifyOperators(app),
+    sendApplicantConfirmation(app, `${origin}${statusPath}`),
+    sendOperatorAlert(app, `${origin}/admin`),
+  ]);
+  for (const r of results) if (r.status === "rejected") console.error("[apply] notify", r.reason);
 
   return Response.json(
     {
       ref: app.ref,
-      statusUrl: `/status/${app.ref}?t=${app.statusToken}`,
+      statusUrl: statusPath,
+      emailed: emailConfigured() && results[1].status === "fulfilled",
       challengeVerified: values.challenge_status === "verified",
     },
     { status: 201 },

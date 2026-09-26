@@ -40,6 +40,20 @@ export function verifySession(value: string | undefined): boolean {
   return safeEqual(sig, hmac(`session:${exp}`));
 }
 
+// ---- Challenge answer ----
+// Stored as HMAC(APP_SECRET, "challenge-answer:<answer>") in CHALLENGE_ANSWER_HMAC.
+// A plain hash of a small integer could be brute-forced from the public repo;
+// without APP_SECRET this one can't. To rotate the answer, recompute with:
+//   node -e 'console.log(require("crypto").createHmac("sha256", Buffer.from(process.env.APP_SECRET,"hex")).update("challenge-answer:<ANSWER>").digest("hex"))'
+
+export const hasChallenge = () => Boolean(APP_SECRET && process.env.CHALLENGE_ANSWER_HMAC);
+
+export function checkChallengeAnswer(answer: string): boolean {
+  const expected = process.env.CHALLENGE_ANSWER_HMAC;
+  if (!expected || !APP_SECRET) return false;
+  return safeEqual(hmac(`challenge-answer:${answer}`), expected);
+}
+
 // ---- Challenge codes: "OP-<nonce>-<signature>" ----
 
 export function issueChallengeCode(): string {

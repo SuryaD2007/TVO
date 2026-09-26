@@ -16,12 +16,22 @@ Landing page and application portal for TVO, UT Austin's external engineering sy
 - **Applicant status**: every submission gets a private `/status/<ref>?t=<token>` link.
 - **Share card**: builders download a 1200×630 "I applied" card (`/api/card`).
 - **Operator console**: `/admin` (password) to filter, search, review, change status, keep notes, export CSV.
+- **Emails** (Resend): applicants get a confirmation with their status link; operators get an alert per
+  application with reply-to set to the applicant.
+- **Abuse protection**: Cloudflare Turnstile on the planner and application form; rate limits stored in
+  Postgres (hashed IPs) so they hold across serverless instances; a daily cap on AI planner calls.
+- **Privacy page** at `/privacy`, security headers (CSP, HSTS, no-referrer on private pages), and
+  cookieless Vercel Analytics.
 
 ```bash
 npm install
 npm run dev     # http://localhost:3000
 npm run build
+npm test        # unit tests (Vitest)
+npm run typecheck
 ```
+
+CI (`.github/workflows/ci.yml`) runs lint, typecheck, tests, and a build on every push and PR.
 
 ## Structure
 
@@ -65,6 +75,10 @@ without Supabase settings, submissions are logged to the server console.
 | `ADMIN_PASSWORD` | Password for `/admin` |
 | `ANTHROPIC_API_KEY` | Enables the Claude sprint planner |
 | `GEMINI_API_KEY` | Enables the Gemini sprint planner (used when Claude isn't configured) |
+| `CHALLENGE_ANSWER_HMAC` | Keyed hash of the challenge answer (command in `src/lib/secrets.ts`) |
+| `NEXT_PUBLIC_TURNSTILE_SITE_KEY`, `TURNSTILE_SECRET_KEY` | Cloudflare Turnstile bot protection |
+| `RESEND_API_KEY`, `EMAIL_FROM`, `OPERATOR_EMAIL` | Confirmation and alert emails |
+| `PLAN_DAILY_AI_LIMIT` | Daily cap on AI planner calls (default 300) |
 | `SLACK_WEBHOOK_URL` | Post each new application to a Slack channel |
 
 Keep `SUPABASE_KEY` server-side (no `NEXT_PUBLIC_` prefix). Even if it leaked, it can only insert rows. Review applications in the Supabase dashboard → Table Editor → `applications`.

@@ -9,7 +9,7 @@ export async function POST(request: Request) {
     return Response.json({ error: "Admin access isn't configured on this deployment." }, { status: 503 });
   }
 
-  const limit = rateLimit(`admin-login:${clientIp(request)}`, { max: 5, windowMs: 15 * 60 * 1000 });
+  const limit = await rateLimit(`admin-login:${clientIp(request)}`, { max: 5, windowMs: 15 * 60 * 1000 });
   if (!limit.ok) {
     return Response.json(
       { error: `Too many attempts. Try again in ${Math.ceil(limit.retryAfter / 60)} min.` },

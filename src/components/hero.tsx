@@ -15,12 +15,6 @@ const TICKETS = [
   { id: "ENG-430", title: "Webhook retry queue", squad: "bravo" },
 ];
 
-const rise = (delay: number) => ({
-  initial: { opacity: 0, y: 32, filter: "blur(8px)" },
-  animate: { opacity: 1, y: 0, filter: "blur(0px)" },
-  transition: { duration: 1, ease: EASE, delay },
-});
-
 export function Hero() {
   const { openApply } = useApply();
 
@@ -33,7 +27,7 @@ export function Hero() {
       />
 
       <Container className="relative">
-        <motion.div {...rise(0)} className="flex items-center gap-3 font-mono text-xs text-muted">
+        <div className="hero-rise flex items-center gap-3 font-mono text-xs text-muted">
           <LiveDot />
           <span>
             System status <span className="text-subtle">/</span>{" "}
@@ -43,18 +37,18 @@ export function Hero() {
             Builders, press
             <kbd className="grid size-5 place-items-center rounded-md text-[11px] text-fg ring-1 ring-line-strong">/</kbd>
           </span>
-        </motion.div>
+        </div>
 
-        <motion.h1
-          {...rise(0.08)}
-          className="mt-8 max-w-[14ch] text-[3.25rem] leading-[0.92] font-medium tracking-[-0.055em] sm:text-7xl lg:text-[7.25rem]"
+        <h1
+          style={{ animationDelay: "80ms" }}
+          className="hero-rise mt-8 max-w-[14ch] text-[3.25rem] leading-[0.92] font-medium tracking-[-0.055em] sm:text-7xl lg:text-[7.25rem]"
         >
           High-velocity engineering for{" "}
           <span className="serif-accent text-accent">Austin startups.</span>
-        </motion.h1>
+        </h1>
 
         <div className="mt-14 grid gap-12 lg:mt-20 lg:grid-cols-12 lg:gap-10">
-          <motion.div {...rise(0.18)} className="lg:col-span-5">
+          <div className="hero-rise lg:col-span-5" style={{ animationDelay: "180ms" }}>
             <p className="max-w-md text-lg leading-relaxed text-pretty text-muted">
               Texas Venture Operators is UT Austin&apos;s external engineering syndicate. We embed
               vetted student builders into locally funded startups to clear live commercial
@@ -74,11 +68,11 @@ export function Hero() {
                 Apply as a Builder
               </Button>
             </div>
-          </motion.div>
+          </div>
 
-          <motion.dl
-            {...rise(0.26)}
-            className="grid grid-cols-2 self-end border-t border-line lg:col-span-6 lg:col-start-7"
+          <dl
+            style={{ animationDelay: "260ms" }}
+            className="hero-rise grid grid-cols-2 self-end border-t border-line lg:col-span-6 lg:col-start-7"
           >
             {HERO_METRICS.map((m, i) => (
               <div
@@ -94,17 +88,12 @@ export function Hero() {
                 </dd>
               </div>
             ))}
-          </motion.dl>
+          </dl>
         </div>
 
-        <motion.div
-          initial={{ opacity: 0, y: 60 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ duration: 1.2, ease: EASE, delay: 0.4 }}
-          className="mt-20 lg:mt-28"
-        >
+        <div className="hero-rise mt-20 lg:mt-28" style={{ animationDelay: "400ms", animationDuration: "1.2s" }}>
           <SprintConsole />
-        </motion.div>
+        </div>
       </Container>
     </section>
   );

@@ -5,6 +5,7 @@ import { AlertCircle, Sparkles } from "lucide-react";
 import { useEffect, useRef, useState, type FormEvent } from "react";
 import { planToText, type SprintPlan } from "@/lib/plan";
 import { useApply } from "./apply-context";
+import { Turnstile, type TurnstileHandle } from "./turnstile";
 import { Bezel, Button, cn, Container, EASE, Reveal, SectionHeader } from "./ui";
 
 const EXAMPLES = [
@@ -31,6 +32,7 @@ export function Planner() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
   const inflight = useRef<AbortController | null>(null);
+  const turnstile = useRef<TurnstileHandle>(null);
 
   useEffect(() => () => inflight.current?.abort(), []);
 
@@ -41,12 +43,14 @@ export function Planner() {
     setLoading(true);
     setError("");
     try {
+      const turnstileToken = quick ? "" : ((await turnstile.current?.getToken()) ?? "");
       const res = await fetch("/api/plan", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ backlog, quick }),
+        body: JSON.stringify({ backlog, quick, turnstileToken }),
         signal: controller.signal,
       });
+      if (!quick) turnstile.current?.reset();
       const data = await res.json();
       if (!res.ok) throw new Error(data.error ?? "Couldn't plan that. Try again.");
       setPlan(data);
@@ -126,13 +130,22 @@ export function Planner() {
                   </p>
                 )}
 
+                <p className="mt-4 text-xs leading-relaxed text-subtle">
+                  Your text is sent to an AI model to draft the plan. Don&apos;t paste secrets or
+                  credentials. <a href="/privacy" className="underline underline-offset-2 hover:text-muted">Privacy</a>
+                </p>
+
+                <div className="mt-4">
+                  <Turnstile action="plan" ref={turnstile} />
+                </div>
+
                 <Button
                   type="submit"
                   size="lg"
                   icon={Sparkles}
                   disabled={loading}
                   aria-busy={loading}
-                  className="mt-6 w-full justify-between"
+                  className="mt-2 w-full justify-between"
                 >
                   {loading ? "Planning…" : "Plan my sprint"}
                 </Button>

@@ -3,6 +3,7 @@ import { Apply } from "@/components/apply";
 import { Distinction } from "@/components/distinction";
 import { Ecosystem } from "@/components/ecosystem";
 import { Engine } from "@/components/engine";
+import { Faq } from "@/components/faq";
 import { Footer } from "@/components/footer";
 import { Hero } from "@/components/hero";
 import { Navbar } from "@/components/navbar";
@@ -25,6 +26,7 @@ export default function Home() {
         <Engine />
         <Ecosystem />
         <Planner />
+        <Faq />
         <Apply />
       </main>
       <Footer />

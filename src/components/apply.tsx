@@ -18,6 +18,7 @@ import { useId, useRef, useState, type FormEvent } from "react";
 import { STEPS, validateField, validateStep, type Field, type Values } from "@/lib/apply-schema";
 import type { Track } from "@/lib/content";
 import { useApply } from "./apply-context";
+import { Turnstile, type TurnstileHandle } from "./turnstile";
 import { Button, cn, Container, EASE, Reveal } from "./ui";
 
 const TRACKS: { id: Track; label: string; sub: string; icon: typeof Building2 }[] = [
@@ -26,7 +27,7 @@ const TRACKS: { id: Track; label: string; sub: string; icon: typeof Building2 }[
 ];
 
 type Status = "idle" | "submitting" | "error" | "done";
-type SubmitResult = { ref: string; statusUrl: string; challengeVerified: boolean };
+type SubmitResult = { ref: string; statusUrl: string; challengeVerified: boolean; emailed?: boolean };
 
 export function Apply() {
   const { track, setTrack, prefill } = useApply();
@@ -42,7 +43,7 @@ export function Apply() {
           <div className="lg:col-span-4">
             <Reveal>
               <div className="flex items-center gap-4 font-mono text-xs text-subtle">
-                <span className="text-accent">05</span>
+                <span className="text-accent">06</span>
                 <span className="h-px w-10 bg-line-strong" aria-hidden />
                 <span className="tracking-[0.08em]">Apply</span>
               </div>
@@ -122,6 +123,7 @@ function ApplicationForm({ track, initial }: { track: Track; initial: Values }) 
   const [direction, setDirection] = useState(1);
   const formRef = useRef<HTMLFormElement>(null);
   const honeypot = useRef<HTMLInputElement>(null);
+  const turnstile = useRef<TurnstileHandle>(null);
 
   const step = steps[stepIndex];
   const isLast = stepIndex === steps.length - 1;
@@ -161,9 +163,15 @@ function ApplicationForm({ track, initial }: { track: Track; initial: Values }) 
       const res = await fetch("/api/apply", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ track, values, website_hp: honeypot.current?.value }),
+        body: JSON.stringify({
+          track,
+          values,
+          website_hp: honeypot.current?.value,
+          turnstileToken: (await turnstile.current?.getToken()) ?? "",
+        }),
       });
       const data = await res.json();
+      turnstile.current?.reset();
       if (!res.ok) {
         if (data.errors) {
           // Jump back to the first step that has a server-side error
@@ -300,7 +308,21 @@ function ApplicationForm({ track, initial }: { track: Track; initial: Values }) 
             </p>
           )}
 
-          <div className="mt-10 flex items-center justify-between gap-3 border-t border-line pt-8">
+          <div className="mt-6">
+            <Turnstile action="apply" ref={turnstile} />
+          </div>
+
+          {isLast && (
+            <p className="mt-6 text-xs text-subtle">
+              By submitting, you agree to how we handle your information in our{" "}
+              <a href="/privacy" className="underline underline-offset-2 hover:text-muted">
+                privacy policy
+              </a>
+              .
+            </p>
+          )}
+
+          <div className="mt-6 flex items-center justify-between gap-3 border-t border-line pt-8">
             <Button
               type="button"
               variant="ghost"
@@ -544,7 +566,9 @@ function ApplySuccess({ track, result, name }: { track: Track; result: SubmitRes
         <div className="mt-8 rounded-2xl bg-ink p-5 ring-1 ring-line">
           <p className="text-sm font-medium text-fg">Track your application</p>
           <p className="mt-1 text-sm text-subtle">
-            This private link shows your status. Save it; it&apos;s the only copy.
+            {result.emailed
+                ? "We also emailed you this private link. It shows your status as it changes."
+                : "This private link shows your status. Save it; it's the only copy."}
           </p>
           <div className="mt-4 flex flex-col gap-2 sm:flex-row">
             <code className="min-w-0 flex-1 truncate rounded-xl bg-surface px-3 py-2.5 font-mono text-xs text-muted ring-1 ring-line">

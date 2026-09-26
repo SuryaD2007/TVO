@@ -123,3 +123,44 @@ export const STACK_MARQUEE = [
 ];
 
 export type Track = "startup" | "builder";
+
+// Only questions the site can answer truthfully today. Add pricing, IP, and
+// builder compensation once those policies are decided.
+export const FAQ = {
+  founders: [
+    {
+      q: "What does a sprint look like?",
+      a: "A squad of 2–4 vetted builders and a TVO lead works a fixed-length sprint, typically two weeks, against a backlog scoped with you. It ends with merged, deployed code, a demo, and a handoff doc.",
+    },
+    {
+      q: "Where does the code live?",
+      a: "In your repo. Builders work in your codebase, through your CI, and every change lands as a pull request your team reviews and merges.",
+    },
+    {
+      q: "What kind of work is a good fit?",
+      a: "Scoped features from a live product backlog at seed and Series A companies: billing, dashboards, integrations, infrastructure, internal tools. Paste yours into the sprint planner above to see how it breaks down.",
+    },
+    {
+      q: "Who are the builders?",
+      a: "UT Austin students who clear a systems-design interview, a take-home against a real codebase, and a code review with a TVO operator before they touch your code.",
+    },
+  ],
+  builders: [
+    {
+      q: "Who can apply?",
+      a: "Current UT Austin students. The application asks for your UT email, your strongest areas, and something real you've shipped.",
+    },
+    {
+      q: "How does selection work?",
+      a: "Applications are reviewed on a rolling basis. Strong applicants move to a systems-design interview and a take-home against a real codebase, followed by a code review with an operator.",
+    },
+    {
+      q: "How much time does it take?",
+      a: "You tell us your weekly availability when you apply, and squads are staffed around it. Sprints are fixed-length, so you'll know the commitment before you start.",
+    },
+    {
+      q: "What's the terminal challenge?",
+      a: "An optional coding problem hidden in the site. Press / to find it. Solving it gives you a code to add to your application, which flags it for priority review.",
+    },
+  ],
+};

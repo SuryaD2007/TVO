@@ -42,10 +42,10 @@ const PUZZLE = [
   "",
   "Our CI stamps every build n with a checksum:",
   "",
-  "    c(n) = (n² + 41n + 1337) mod 65521",
+  "    c(n) = (n² + 73n + 2027) mod 65521",
   "",
   "A build is clean when c(n) reads the same backwards,",
-  "like build 157 → 32423.",
+  "like build 397 → 57575.",
   "",
   "How many clean builds are there for 1 ≤ n ≤ 1,000,000?",
 ];

@@ -52,7 +52,7 @@ export function Navbar() {
               : "bg-ink/40 ring-line",
           )}
         >
-          <a href="#top" aria-label="Texas Venture Operators, back to top" className="flex rounded-full">
+          <a href="#top" aria-label="TVO, Texas Venture Operators: back to top" className="flex rounded-full">
             <Logo compact />
           </a>
 

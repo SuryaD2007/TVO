@@ -1,5 +1,6 @@
 import type { Metadata, Viewport } from "next";
 import { Geist, Geist_Mono, Instrument_Serif } from "next/font/google";
+import { Analytics } from "@vercel/analytics/next";
 import { SITE_URL } from "@/lib/site";
 import "./globals.css";
 
@@ -42,7 +43,11 @@ export const viewport: Viewport = {
 export default function RootLayout({ children }: LayoutProps<"/">) {
   return (
     <html lang="en" className={`${geistSans.variable} ${geistMono.variable} ${instrumentSerif.variable} antialiased`}>
-      <body className="min-h-dvh bg-ink">{children}</body>
+      <body className="min-h-dvh bg-ink">
+        {children}
+        {/* The analytics script is served by Vercel's edge; skip it elsewhere */}
+        {process.env.VERCEL && <Analytics />}
+      </body>
     </html>
   );
 }

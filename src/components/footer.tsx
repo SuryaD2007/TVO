@@ -13,6 +13,7 @@ const LINK_GROUPS = [
     links: [
       { label: "Email", href: `mailto:${CONTACT.email}` },
       { label: "LinkedIn", href: CONTACT.linkedin },
+      { label: "Privacy", href: "/privacy" },
     ],
   },
 ];
@@ -109,17 +110,32 @@ export function Footer() {
 
         <div className="flex flex-col gap-2 border-t border-line py-6 text-xs text-subtle sm:flex-row sm:items-center sm:justify-between">
           <p>© {new Date().getFullYear()} Texas Venture Operators</p>
-          <p>Student organization at The University of Texas at Austin</p>
+          <p className="max-w-xl sm:text-right">
+            A student organization at The University of Texas at Austin. Not an official unit of the
+            university.
+          </p>
         </div>
       </Container>
 
       {/* Oversized wordmark, cropped by the viewport edge */}
-      <div
+      <svg
         aria-hidden
-        className="pointer-events-none -mb-[0.22em] text-center text-[34vw] leading-[0.8] font-semibold tracking-[-0.07em] text-fg/[0.035] select-none"
+        viewBox="0 0 1000 300"
+        className="pointer-events-none -mb-[4vw] block w-full select-none"
       >
-        TVO
-      </div>
+        <text
+          x="500"
+          y="290"
+          textAnchor="middle"
+          fontSize="400"
+          fontWeight="600"
+          letterSpacing="-28"
+          fill="currentColor"
+          className="text-fg/[0.035] font-sans"
+        >
+          TVO
+        </text>
+      </svg>
     </footer>
   );
 }

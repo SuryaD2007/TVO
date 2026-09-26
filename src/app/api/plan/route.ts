@@ -2,6 +2,7 @@ import Anthropic from "@anthropic-ai/sdk";
 import { AREAS, SIZES, sizing, type PlanTicket, type SprintPlan } from "@/lib/plan";
 import { estimatePlan } from "@/lib/plan-estimate";
 import { clientIp, rateLimit } from "@/lib/rate-limit";
+import { verifyTurnstile } from "@/lib/turnstile";
 
 const MIN_LEN = 20;
 const MAX_LEN = 4000;
@@ -19,6 +20,7 @@ const GEMINI_MODELS = (process.env.GEMINI_MODELS ?? "gemini-2.5-flash,gemini-fla
 // Allow time for a model fallback or two on Vercel; Gemini gets a shared budget.
 export const maxDuration = 60;
 const GEMINI_BUDGET_MS = 45_000;
+const AI_DAILY_LIMIT = Number(process.env.PLAN_DAILY_AI_LIMIT ?? 300);
 
 const SYSTEM = `You scope engineering sprints for Texas Venture Operators (TVO), a UT Austin student engineering syndicate that embeds squads of 2-4 vetted builders into seed and Series A startups for fixed two-week sprints.
 
@@ -155,7 +157,7 @@ function normalize(raw: Omit<SprintPlan, "source">): SprintPlan | null {
 }
 
 export async function POST(request: Request) {
-  const limit = rateLimit(`plan:${clientIp(request)}`, { max: 6, windowMs: 10 * 60 * 1000 });
+  const limit = await rateLimit(`plan:${clientIp(request)}`, { max: 6, windowMs: 10 * 60 * 1000 });
   if (!limit.ok) {
     return Response.json(
       { error: "You've planned a lot of sprints. Take a breather and try again in a few minutes." },
@@ -165,10 +167,12 @@ export async function POST(request: Request) {
 
   let backlog = "";
   let quick = false;
+  let turnstileToken = "";
   try {
     const body = await request.json();
     backlog = String(body.backlog ?? "").trim();
     quick = body.quick === true;
+    turnstileToken = String(body.turnstileToken ?? "");
   } catch {
     return Response.json({ error: "Invalid JSON." }, { status: 400 });
   }
@@ -181,6 +185,14 @@ export async function POST(request: Request) {
 
   // "Get a quick estimate now" skips the AI providers entirely
   if (quick) return Response.json(estimatePlan(backlog));
+
+  if (!(await verifyTurnstile(turnstileToken, request))) {
+    return Response.json({ error: "Couldn't verify you're human. Refresh and try again." }, { status: 403 });
+  }
+
+  // Hard daily ceiling on paid AI calls across all visitors
+  const budget = await rateLimit("plan-ai:global", { max: AI_DAILY_LIMIT, windowMs: 24 * 60 * 60 * 1000 });
+  if (!budget.ok) return Response.json(estimatePlan(backlog));
 
   try {
     const plan = await planWithClaude(backlog);

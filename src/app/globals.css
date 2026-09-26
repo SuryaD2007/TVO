@@ -29,6 +29,12 @@
   }
 }
 
+/* Hero entrance runs in CSS so it starts at first paint, not after hydration */
+@keyframes hero-rise {
+  from { opacity: 0; transform: translateY(32px); filter: blur(8px); }
+  to { opacity: 1; transform: none; filter: none; }
+}
+
 @keyframes dash {
   to { stroke-dashoffset: -12; }
 }
@@ -91,6 +97,10 @@
     box-shadow:
       inset 0 1px 0 rgb(245 243 238 / 0.06),
       0 0 0 1px rgb(245 243 238 / 0.04);
+  }
+
+  .hero-rise {
+    animation: hero-rise 1s var(--ease-fluid) both;
   }
 
   .serif-accent {
